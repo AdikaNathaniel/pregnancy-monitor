@@ -1,20 +1,17 @@
 import 'dart:async';
+import 'dart:math'; // Import the dart:math package
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: PregnancyComplicationsPage(),
-    );
-  }
-}
+import 'view-appointment.dart';
+import 'create_cancel-appointment.dart';
+import 'login_page.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class PregnancyComplicationsPage extends StatefulWidget {
+  final String userEmail;
+
+  PregnancyComplicationsPage({required this.userEmail});
+
   @override
   _PregnancyComplicationsPageState createState() =>
       _PregnancyComplicationsPageState();
@@ -23,12 +20,13 @@ class PregnancyComplicationsPage extends StatefulWidget {
 class _PregnancyComplicationsPageState
     extends State<PregnancyComplicationsPage> {
   List<Map<String, String>> complications = [
-    {'name': 'Preeclampsia', 'severity': 'Mild'},
+    {'name': 'Preeclampsia', 'severity': 'Mid'},
     {'name': 'Anemia', 'severity': 'High'},
     {'name': 'Gestational Diabetes', 'severity': 'Low'}
   ];
 
   int currentIndex = 0;
+  final Random _random = Random();
 
   @override
   void initState() {
@@ -38,8 +36,38 @@ class _PregnancyComplicationsPageState
     Timer.periodic(Duration(seconds: 30), (timer) {
       setState(() {
         currentIndex = (currentIndex + 1) % complications.length;
+        _randomizeSeverities();
       });
     });
+  }
+
+  void _randomizeSeverities() {
+    const severities = ['Low', 'Mid', 'High'];
+    for (var complication in complications) {
+      complication['severity'] = severities[_random.nextInt(severities.length)];
+    }
+  }
+
+  void _logout() async {
+    final response = await http.put(
+      Uri.parse('http://localhost:3100/api/v1/users/logout'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      if (responseData['success']) {
+        _showSuccessDialog("Logout successfully");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage()),
+        );
+      } else {
+        _showSnackbar("Logout failed: ${responseData['message']}", Colors.red);
+      }
+    } else {
+      _showSnackbar("Logout failed: Server error", Colors.red);
+    }
   }
 
   @override
@@ -50,12 +78,71 @@ class _PregnancyComplicationsPageState
           child: const Text(
             'Pregnancy Complication Prediction',
             style: TextStyle(
-              color: Colors.white, // Set the text color to white
+              color: Colors.white,
             ),
           ),
         ),
         backgroundColor: Colors.blue,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: CircleAvatar(
+              child: Text(
+                widget.userEmail.isNotEmpty ? widget.userEmail[0].toUpperCase() : 'U',
+                style: TextStyle(color: Colors.blue),
+              ),
+              backgroundColor: Colors.white,
+            ),
+            onPressed: () {
+              // Show user info dialog
+              _showUserInfoDialog();
+            },
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Center(
+                child: Text(
+                  'MEDICAL OFFICER',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.list),
+              title: Text('Medical Appointments'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ViewAppointmentsPage(userEmail: widget.userEmail)), // Pass userEmail
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.calendar_today),
+              title: Text('Create-Cancel Appointment'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => CreateCancelAppointmentPage(userEmail: widget.userEmail)),
+                );
+              },
+            ),
+          ],
+        ),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -99,9 +186,8 @@ class _PregnancyComplicationsPageState
                         ),
                       ),
                       SizedBox(height: 10),
-                      // Removed the severity text here
-                      SizedBox(height: 20),
-                      severityIndicator(complications[currentIndex]['severity']!)
+                      severityIndicator(
+                          complications[currentIndex]['severity']!)
                     ],
                   ),
                 ),
@@ -122,13 +208,14 @@ class _PregnancyComplicationsPageState
         color = Colors.green;
         message = 'Monitor your health, stay active and hydrated!';
         break;
-      case 'Mild':
+      case 'Mid':
         color = Colors.orange;
         message = 'Watch for symptoms and consult your doctor regularly.';
         break;
       case 'High':
         color = Colors.red;
-        message = 'Immediate attention is needed. Contact your healthcare provider.';
+        message =
+            'Immediate attention is needed. Contact your healthcare provider.';
         break;
       default:
         color = Colors.grey;
@@ -144,7 +231,7 @@ class _PregnancyComplicationsPageState
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            severity, // Severity now only shows in this button
+            severity,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -162,6 +249,76 @@ class _PregnancyComplicationsPageState
           ),
         ),
       ],
+    );
+  }
+
+  void _showUserInfoDialog() {
+    String email = widget.userEmail;
+    // String role = 'Doctor'; 
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Center(child: Text('Profile')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.email),
+                SizedBox(width: 10),
+                Text(email),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                // Icon(Icons.person),
+                SizedBox(width: 10),
+                // Text(role),
+              ],
+            ),
+            SizedBox(height: 10),
+            TextButton(
+              onPressed: _logout, // Call logout function when pressed
+              child: Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackbar(String message, Color color) {
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: color,
+      duration: Duration(seconds: 2),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Icon(Icons.check_circle, color: Colors.green, size: 50),
+        content: Text(message, textAlign: TextAlign.center),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

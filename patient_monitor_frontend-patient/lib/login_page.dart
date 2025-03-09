@@ -1,34 +1,9 @@
-import 'package:flutter/material.dart';
-import 'register.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'predictions.dart'; // Import the PregnancyComplicationsPage
+import 'register.dart';
 import 'health_metrics.dart';
-import 'predictions.dart';
-
-// Main App Widget remains the same
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Login Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        // Add this for better floating label appearance
-        inputDecorationTheme: InputDecorationTheme(
-          floatingLabelStyle: TextStyle(color: Colors.white),
-        ),
-      ),
-      home: const LoginPage(),
-    );
-  }
-}
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -40,11 +15,11 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
-  String selectedUserType = 'Doctor'; // Default value
-  bool _obscurePassword = true; // Track password visibility state
+  String selectedUserType = 'Doctor'; 
+  bool _obscurePassword = true; 
+  bool _isLoading = false; 
 
   final List<String> userTypes = ['Doctor', 'Pregnant Woman', 'Family Relative', 'Admin'];
-  bool _isLoading = false; // Loading state
 
   @override
   Widget build(BuildContext context) {
@@ -76,13 +51,9 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               _icon(),
               const SizedBox(height: 50),
-              _inputField(
-                "Email", 
-                emailController,
-                icon: Icons.email_outlined,
-              ),
+              _inputField("Email", emailController, icon: Icons.email_outlined),
               const SizedBox(height: 20),
-              _passwordField(), // Special password field with visibility toggle
+              _passwordField(),
               const SizedBox(height: 20),
               _userTypeDropdown(),
               const SizedBox(height: 50),
@@ -113,11 +84,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _inputField(
-    String labelText, 
-    TextEditingController controller, 
-    {bool isPassword = false, IconData? icon}
-  ) {
+  Widget _inputField(String labelText, TextEditingController controller, {bool isPassword = false, IconData? icon}) {
     return TextField(
       style: const TextStyle(color: Colors.white),
       controller: controller,
@@ -143,25 +110,22 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Special password field with visibility toggle
   Widget _passwordField() {
     return TextField(
       style: const TextStyle(color: Colors.white),
       controller: passwordController,
-      obscureText: _obscurePassword, // Use the state variable to control visibility
+      obscureText: _obscurePassword,
       decoration: InputDecoration(
         labelText: "Password",
         labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
         suffixIcon: IconButton(
           icon: Icon(
-            // Change the icon based on the password visibility state
             _obscurePassword ? Icons.visibility_off : Icons.visibility,
             color: Colors.white70,
           ),
           onPressed: () {
             setState(() {
-              // Toggle password visibility when the button is pressed
               _obscurePassword = !_obscurePassword;
             });
           },
@@ -181,13 +145,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Color _mixColors(Color color1, Color color2, double amount) {
-    return Color.lerp(color1, color2, amount)!;
-  }
-
   Widget _userTypeDropdown() {
     return Container(
-      height: 60, // Match TextField default height
+      height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.white),
@@ -203,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
               child: DropdownButton<String>(
                 value: selectedUserType,
                 isExpanded: true,
-                dropdownColor: _mixColors(Colors.blue, Colors.red, 0.5),
+                dropdownColor: Colors.blue.withOpacity(0.8),
                 style: const TextStyle(color: Colors.white, fontSize: 16),
                 hint: const Text(
                   'Login As',
@@ -233,7 +193,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _loginBtn() {
     return ElevatedButton(
-      onPressed: _isLoading ? null : _login, // Disable button during loading
+      onPressed: _isLoading ? null : _login,
       style: ElevatedButton.styleFrom(
         shape: const StadiumBorder(),
         backgroundColor: Colors.white,
@@ -241,7 +201,7 @@ class _LoginPageState extends State<LoginPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
       ),
       child: _isLoading
-          ? const CircularProgressIndicator() // Show loading indicator
+          ? const CircularProgressIndicator()
           : const SizedBox(
               width: double.infinity,
               child: Text(
@@ -255,7 +215,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     setState(() {
-      _isLoading = true; // Set loading state
+      _isLoading = true;
     });
 
     String email = emailController.text;
@@ -276,46 +236,27 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200 && responseData['success']) {
         _showSnackbar("Login successful", Colors.green);
 
+        // Navigate to the appropriate page based on user type
         if (selectedUserType.toLowerCase() == 'doctor') {
           if (mounted) {
-           Navigator.pushReplacement(
-             context,
-             MaterialPageRoute(
-                builder: (context) =>  PregnancyComplicationsPage(),
-        
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PregnancyComplicationsPage(userEmail: email), // Pass the email here
               ),
-             );
+            );
           }
         } else if (selectedUserType.toLowerCase() == 'pregnant woman' || selectedUserType.toLowerCase() == 'family relative') {
           if (mounted) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => const HealthDashboard(),
+                builder: (context) => HealthDashboard(userEmail: email),
               ),
             );
           }
         } else if (selectedUserType.toLowerCase() == 'admin') {
-          // Fetch totals and navigate to SummaryPage
-          // int totalProducts = await _fetchTotalProducts();
-          // int totalItemsInCart = await _fetchTotalItemsInCart();
-          // int totalOrders = await _fetchTotalOrders();
-          // int totalUsers = await _fetchTotalUsers();
-
-          // if (mounted) {
-          //   Navigator.pushReplacement(
-          //     context,
-          //     MaterialPageRoute(
-          //       builder: (context) => SummaryPage(
-          //         totalProducts: totalProducts,
-          //         totalItemsInCart: totalItemsInCart,
-          //         totalOrders: totalOrders,
-          //         totalUsers: totalUsers,
-          //         userEmail: email,
-          //       ),
-          //     ),
-          //   );
-          // }
+          // Admin logic here
         } else {
           _showSnackbar("Invalid user type.", Colors.red);
         }
